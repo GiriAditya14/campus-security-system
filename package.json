@@ -1,0 +1,45 @@
+{
+  "name": "campus-security-system",
+  "version": "1.0.0",
+  "description": "Campus Entity Resolution & Security Monitoring System for Ethos Hackathon",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm run start:all",
+    "start:all": "concurrently \"npm run start:backend\" \"npm run start:frontend\" \"npm run start:ml\"",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start",
+    "start:ml": "cd ml-service && python main.py",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:ml\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "dev:ml": "cd ml-service && python main.py",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../ml-service && pip install -r requirements.txt",
+    "build": "cd frontend && npm run build",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "seed:users": "cd backend && npm run seed:users",
+    "seed:data": "cd backend && npm run seed:data",
+    "check:health": "node -e \"require('axios').get('http://localhost:5000/health').then(r=>console.log('✅ Backend healthy')).catch(e=>console.log('❌ Backend down'))\"",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "keywords": [
+    "campus",
+    "security",
+    "entity-resolution",
+    "monitoring",
+    "mern",
+    "hackathon"
+  ],
+  "author": "Campus Security Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "axios": "^1.12.2"
+  }
+}
