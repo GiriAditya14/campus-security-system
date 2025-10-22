@@ -129,7 +129,7 @@ logs/
 *.joblib
 *.h5
 *.pb
-models/
+# models/
 checkpoints/
 
 # Generated data
