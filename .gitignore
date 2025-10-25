@@ -121,7 +121,7 @@ Thumbs.db
 dump.rdb
 
 # Neo4j
-data/
+# data/
 logs/
 
 # ML models
