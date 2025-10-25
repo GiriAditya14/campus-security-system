@@ -12,7 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 // Settings (development-safe defaults)
-const DATA_GENERATOR_ENABLED = (process.env.DATA_GENERATOR_ENABLED === 'true');
+const DATA_GENERATOR_ENABLED = 'true';
 const DATA_GENERATOR_INTERVAL_MS = parseInt(process.env.DATA_GENERATOR_INTERVAL_MS || '5000', 10);
 // target: 'dev' (writes to .gen.csv alongside originals) or 'prod' (write to original files)
 const DATA_GENERATOR_TARGET = process.env.DATA_GENERATOR_TARGET || 'dev';
