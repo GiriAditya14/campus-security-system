@@ -9,11 +9,13 @@ import {
   EyeIcon,
   ChartBarIcon,
   AdjustmentsHorizontalIcon,
-  XMarkIcon
+  XMarkIcon,
+  PresentationChartLineIcon
 } from '@heroicons/react/24/outline';
 import { analyticsAPI, entitiesAPI, handleAPIError } from '../../services/api';
 import { useAlert } from '../../contexts/AlertContext';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
+import SpatialForecasting from '../../components/SpatialForecasting/SpatialForecasting';
 
 const CampusMap = () => {
   const mapRef = useRef(null);
@@ -38,6 +40,18 @@ const CampusMap = () => {
   const [mapCenter, setMapCenter] = useState({ lat: 26.1882, lng: 91.6920 }); // IIT Guwahati coordinates
   const [zoom, setZoom] = useState(16);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [spatialForecastingOpen, setSpatialForecastingOpen] = useState(false);
+  
+  // Tab navigation state
+  const [activeTab, setActiveTab] = useState('map'); // 'map' | 'forecasting'
+  
+  // Pagination state for entities
+  const [entitiesPagination, setEntitiesPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    hasMore: false
+  });
   
   // Map interaction state
   const [isDragging, setIsDragging] = useState(false);
@@ -143,20 +157,22 @@ const CampusMap = () => {
     };
   }, [isDragging, dragStart, mapOffset]);
 
-  const loadMapData = async () => {
+  const loadMapData = async (page = 1, isLoadMore = false) => {
     try {
-      setLoading(true);
+      if (!isLoadMore) setLoading(true);
       
-      // Load entities from backend
+      // Load entities from backend with pagination
       const [entitiesResponse, analyticsResponse] = await Promise.all([
         entitiesAPI.search({ 
-          limit: 100,
+          page,
+          limit: entitiesPagination.limit,
           status: 'active'
         }),
         analyticsAPI.getDashboard()
       ]);
 
       const entitiesData = entitiesResponse.data.data || [];
+      const paginationData = entitiesResponse.data.pagination || {};
       const analyticsData = analyticsResponse.data.data || {};
 
       // Process entities with location data
@@ -174,11 +190,23 @@ const CampusMap = () => {
           status: entity.metadata.status
         }));
 
-      setEntities(processedEntities);
+      if (page === 1 && !isLoadMore) {
+        setEntities(processedEntities);
+      } else {
+        setEntities(prev => [...prev, ...processedEntities]);
+      }
+
+      // Update pagination
+      setEntitiesPagination({
+        page: paginationData.page || 1,
+        limit: paginationData.limit || 20,
+        total: paginationData.total || 0,
+        hasMore: paginationData.hasMore || false
+      });
       
       // Update stats
       setStats({
-        totalEntities: entitiesData.length,
+        totalEntities: paginationData.total || entitiesData.length,
         activeEntities: processedEntities.length,
         buildingsActive: new Set(processedEntities.map(e => e.location.building)).size
       });
@@ -208,6 +236,12 @@ const CampusMap = () => {
       console.warn('Heatmap data not available:', error.message);
     } finally {
       setHeatmapLoading(false);
+    }
+  };
+
+  const loadMoreEntities = () => {
+    if (!loading && entitiesPagination.hasMore) {
+      loadMapData(entitiesPagination.page + 1, true);
     }
   };
 
@@ -487,6 +521,35 @@ const CampusMap = () => {
         </div>
       </div>
 
+      {/* Tab navigation */}
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
+        <nav className="-mb-px flex space-x-2">
+          <button
+            onClick={() => setActiveTab('map')}
+            className={`py-2 px-4 text-sm font-medium rounded-t-md ${
+              activeTab === 'map' 
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-200' 
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            Campus Map
+          </button>
+          <button
+            onClick={() => setActiveTab('forecasting')}
+            className={`py-2 px-4 text-sm font-medium rounded-t-md ${
+              activeTab === 'forecasting' 
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-200' 
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            Spatial Forecasting
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'map' ? (
+        <>
       {/* Controls */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -496,7 +559,7 @@ const CampusMap = () => {
           </h2>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mr-3"
           >
             <EyeIcon className="h-4 w-4 mr-1" />
             {sidebarCollapsed ? 'Show' : 'Hide'} Sidebar
@@ -638,10 +701,10 @@ const CampusMap = () => {
               <div className="p-4">
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center">
                   <UserGroupIcon className="h-4 w-4 mr-2" />
-                  Active Entities ({filteredEntities.length})
+                  Active Entities ({entitiesPagination.total || filteredEntities.length})
                 </h3>
                 
-                {loading ? (
+                {loading && entities.length === 0 ? (
                   <div className="space-y-3">
                     {[...Array(5)].map((_, i) => (
                       <div key={i} className="animate-pulse">
@@ -651,52 +714,74 @@ const CampusMap = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {filteredEntities.slice(0, 50).map(entity => (
-                      <div
-                        key={entity.id}
-                        onClick={() => handleEntityClick(entity)}
-                        className={`p-3 rounded-md cursor-pointer transition-colors border ${
-                          selectedEntity?.id === entity.id
-                            ? 'bg-blue-50 dark:bg-blue-900 border-blue-300 dark:border-blue-600'
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-700 border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <div 
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: getEntityColor(entity.type) }}
-                            ></div>
-                            <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                              {entity.name}
+                  <>
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {filteredEntities.map(entity => (
+                        <div
+                          key={entity.id}
+                          onClick={() => handleEntityClick(entity)}
+                          className={`p-3 rounded-md cursor-pointer transition-colors border ${
+                            selectedEntity?.id === entity.id
+                              ? 'bg-blue-50 dark:bg-blue-900 border-blue-300 dark:border-blue-600'
+                              : 'hover:bg-gray-50 dark:hover:bg-gray-700 border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div 
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: getEntityColor(entity.type) }}
+                              ></div>
+                              <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {entity.name}
+                              </span>
+                            </div>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {(entity.confidence * 100).toFixed(0)}%
                             </span>
                           </div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {(entity.confidence * 100).toFixed(0)}%
+                          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center">
+                              <MapPinIcon className="h-3 w-3 mr-1" />
+                              {entity.location.building}
+                            </div>
+                            <div className="flex items-center mt-1">
+                              <ClockIcon className="h-3 w-3 mr-1" />
+                              {entity.lastSeen.toLocaleTimeString()}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Pagination Info and Load More */}
+                    {entitiesPagination.total > 0 && (
+                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-3">
+                          <span>
+                            Showing {filteredEntities.length} of {entitiesPagination.total} entities
+                          </span>
+                          <span>
+                            Page {entitiesPagination.page}
                           </span>
                         </div>
-                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                          <div className="flex items-center">
-                            <MapPinIcon className="h-3 w-3 mr-1" />
-                            {entity.location.building}
-                          </div>
-                          <div className="flex items-center mt-1">
-                            <ClockIcon className="h-3 w-3 mr-1" />
-                            {entity.lastSeen.toLocaleTimeString()}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {filteredEntities.length > 50 && (
-                      <div className="text-center py-2">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          Showing 50 of {filteredEntities.length} entities
-                        </span>
+                        
+                        {entitiesPagination.hasMore && (
+                          <button
+                            onClick={loadMoreEntities}
+                            disabled={loading}
+                            className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-800 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                          >
+                            {loading ? (
+                              <LoadingSpinner size="small" />
+                            ) : (
+                              `Load More (${entitiesPagination.total - filteredEntities.length} remaining)`
+                            )}
+                          </button>
+                        )}
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -1106,6 +1191,17 @@ const CampusMap = () => {
             <LoadingSpinner size="large" />
             <span className="text-gray-900 dark:text-white">Loading campus map data...</span>
           </div>
+        </div>
+      )}
+        </>
+      ) : (
+        /* Spatial Forecasting Tab Content */
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+          <SpatialForecasting
+            isOpen={true}
+            onClose={() => setActiveTab('map')}
+            embedded={true}
+          />
         </div>
       )}
     </div>
